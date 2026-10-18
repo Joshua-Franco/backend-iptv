@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: iptv-peru-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql+psycopg://neondb_owner:npg_XfO7SC8xBanH@ep-orange-feather-b7l8jzsx-pooler.c-13.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - key: HOST
+        value: 0.0.0.0
+      - key: RELOAD
+        value: "false"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PYTHON_VERSION
+        value: 3.12.10

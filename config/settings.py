@@ -14,7 +14,13 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
-    RELOAD: bool = os.getenv("RELOAD", "true").strip().lower() in {"1", "true", "yes"}
+    IS_PRODUCTION: bool = bool(os.getenv("RENDER"))
+    RELOAD: bool = (
+        os.getenv("RELOAD", "false" if IS_PRODUCTION else "true")
+        .strip()
+        .lower()
+        in {"1", "true", "yes"}
+    )
     CORS_ORIGINS: list[str] = [
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", "*").split(",")
