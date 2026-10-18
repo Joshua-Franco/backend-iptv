@@ -10,7 +10,7 @@ from config.settings import settings
 from database.connection import Base, SessionLocal, engine
 from database.migration import run_migrations
 from database.seed import seed_if_empty, update_streams
-from routes import channels, health, stream
+from routes import channels, custom, health, iptv, stream
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -51,6 +51,8 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=settings.LOGOS_DIR.parent), name="static")
 app.include_router(health.router, prefix=settings.API_PREFIX)
 app.include_router(channels.router, prefix=settings.API_PREFIX)
+app.include_router(iptv.router, prefix=settings.API_PREFIX)
+app.include_router(custom.router, prefix=settings.API_PREFIX)
 app.include_router(stream.router, prefix=settings.API_PREFIX)
 
 

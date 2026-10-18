@@ -17,6 +17,39 @@ _cache: dict[str, tuple[float, str, str]] = {}
 _CACHE_TTL = 3.0
 
 _allowed_hosts: dict[str, set[str]] = {}
+_channel_headers: dict[str, dict[str, str]] = {}
+
+
+def set_channel_headers(channel_id: str, headers: dict[str, str] | None) -> None:
+    _channel_headers[channel_id] = {
+        key: value for key, value in (headers or {}).items() if value
+    }
+
+
+def _headers_for(channel_id: str) -> dict[str, str]:
+    merged = dict(BROWSER_HEADERS)
+    merged.update(_channel_headers.get(channel_id, {}))
+    return merged
+
+
+def register_channel_host(channel_id: str, url: str) -> None:
+    _register_host(channel_id, url)
+
+
+def build_direct_playlist(channel_id: str, url: str, prefix: str) -> str:
+    _register_host(channel_id, url)
+    target = f"{prefix}/stream/{channel_id}/asset?u={quote(url, safe='')}"
+    return "\n".join(
+        [
+            "#EXTM3U",
+            "#EXT-X-VERSION:3",
+            "#EXT-X-TARGETDURATION:9999",
+            "#EXT-X-MEDIA-SEQUENCE:0",
+            "#EXTINF:9999.0,",
+            target,
+            "#EXT-X-ENDLIST",
+        ]
+    )
 
 
 def _register_host(channel_id: str, url: str) -> None:
@@ -47,12 +80,14 @@ def _rewrite(playlist: str, base_url: str, channel_id: str, prefix: str) -> str:
     return "\n".join(lines)
 
 
-def _fetch_text(url: str) -> tuple[str, str]:
+def _fetch_text(url: str, channel_id: str) -> tuple[str, str]:
     cached = _cache.get(url)
     if cached and time.monotonic() - cached[0] < _CACHE_TTL:
         return cached[1], cached[2]
     try:
-        with httpx.Client(headers=BROWSER_HEADERS, timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(
+            headers=_headers_for(channel_id), timeout=10.0, follow_redirects=True
+        ) as client:
             response = client.get(url)
     except httpx.HTTPError as exc:
         raise HTTPException(
@@ -72,7 +107,7 @@ def _fetch_text(url: str) -> tuple[str, str]:
 
 def get_playlist(channel_id: str, url: str, prefix: str) -> str:
     _register_host(channel_id, url)
-    text, _ = _fetch_text(url)
+    text, _ = _fetch_text(url, channel_id)
     return _rewrite(text, url, channel_id, prefix)
 
 
@@ -82,7 +117,9 @@ def proxy_asset(channel_id: str, url: str) -> tuple[str, Iterator[bytes]]:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Host del recurso no permitido",
         )
-    client = httpx.Client(headers=BROWSER_HEADERS, timeout=15.0, follow_redirects=True)
+    client = httpx.Client(
+        headers=_headers_for(channel_id), timeout=15.0, follow_redirects=True
+    )
     try:
         request = client.build_request("GET", url)
         response = client.send(request, stream=True)

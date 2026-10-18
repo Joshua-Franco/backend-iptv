@@ -15,6 +15,9 @@ class ChannelOut(BaseModel):
     description: str | None = None
     stream_url: str | None = None
     website: str | None = None
+    source: str | None = Field(
+        default=None, description="iptv para iptv-org, custom para enlaces propios"
+    )
 
 
 class CategoryOut(BaseModel):
@@ -32,3 +35,5 @@ class HealthOut(BaseModel):
     status: str
     database: str
     channels: int
+    iptv: int = 0
+    custom: int = 0
