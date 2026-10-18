@@ -1,6 +1,6 @@
 from models.channel import Channel
 from models.custom import CustomChannel, CustomSource
-from models.iptv import IptvCategory, IptvChannel, IptvCountry, IptvLogo, IptvStream
+from models.iptv import IptvCategory, IptvChannel, IptvLogo, IptvStream
 
 __all__ = [
     "Channel",
@@ -8,7 +8,6 @@ __all__ = [
     "CustomSource",
     "IptvCategory",
     "IptvChannel",
-    "IptvCountry",
     "IptvLogo",
     "IptvStream",
 ]

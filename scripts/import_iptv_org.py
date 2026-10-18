@@ -18,7 +18,7 @@ import httpx
 from sqlalchemy import delete, func, select
 
 from database.connection import Base, SessionLocal, engine
-from models.iptv import IptvCategory, IptvChannel, IptvCountry, IptvLogo, IptvStream
+from models.iptv import IptvCategory, IptvChannel, IptvLogo, IptvStream
 from services.palette import accent_for, make_initials
 
 API = "https://iptv-org.github.io/api"
@@ -116,7 +116,6 @@ def main() -> int:
             )
             return 0
 
-        countries_raw = download("countries.json")
         channels_raw = download("channels.json")
         streams_raw = download("streams.json")
         logos_raw = download("logos.json")
@@ -145,25 +144,12 @@ def main() -> int:
             if channel_id in streams_by_channel:
                 logos_by_channel.setdefault(channel_id, []).append(logo)
 
-        known_codes = {country.get("code") for country in countries_raw}
-        importable = [
-            channel for channel in importable if channel.get("country") in known_codes
-        ]
-        importable.sort(key=lambda c: (c.get("country") or "", c.get("name") or ""))
+        importable.sort(key=lambda c: (c.get("name") or "").lower())
 
         if args.refresh:
-            for model in (IptvStream, IptvLogo, IptvChannel, IptvCountry, IptvCategory):
+            for model in (IptvStream, IptvLogo, IptvChannel, IptvCategory):
                 db.execute(delete(model))
 
-        db.add_all(
-            IptvCountry(
-                code=country["code"],
-                name=country.get("name") or country["code"],
-                flag=country.get("flag") or "",
-                languages=_csv(country.get("languages")),
-            )
-            for country in countries_raw
-        )
         db.add_all(
             IptvCategory(
                 code=item.get("id") or "",
@@ -176,21 +162,18 @@ def main() -> int:
         # Sin relationship() SQLAlchemy no ordena por FK: forzar el orden.
         db.flush()
 
-        numbers: dict[str, int] = {}
         channel_rows: list[IptvChannel] = []
         stream_rows: list[IptvStream] = []
         logo_rows: list[IptvLogo] = []
         too_long_ids = 0
 
-        for channel in importable:
+        for index, channel in enumerate(importable, start=1):
             channel_id = channel.get("id") or ""
             if len(channel_id) > 255:
                 too_long_ids += 1
                 continue
             name = (channel.get("name") or channel_id)[:255]
-            country_code = channel["country"]
-            number = numbers.get(country_code, 0) + 1
-            numbers[country_code] = number
+            number = index
 
             streams = streams_by_channel.get(channel_id) or []
             primary = streams[0] if streams else {}
@@ -205,12 +188,11 @@ def main() -> int:
                 IptvChannel(
                     id=channel_id,
                     name=name,
-                    country=country_code,
                     category=primary_category[:60],
                     categories=_csv(categories),
                     website=_truncate(channel.get("website"), 500),
                     is_nsfw=bool(channel.get("is_nsfw")),
-                    accent=accent_for(country_code),
+                    accent=accent_for(channel_id),
                     initials=make_initials(name),
                     number=number,
                     stream_url=primary.get("url"),
@@ -255,7 +237,6 @@ def main() -> int:
         db.commit()
 
         log.info("--------------------------------------------------")
-        log.info("Paises importados:        %s", len(countries_raw))
         log.info("Categorias importadas:    %s", len(categories_raw))
         log.info("Canales con enlace:       %s", len(channel_rows))
         log.info("Streams (enlaces m3u8):   %s", len(stream_rows))
@@ -264,9 +245,7 @@ def main() -> int:
         log.info("Streams sin canal:        %s", unlinked_streams)
         log.info("Streams de canal huerfano:%s", orphan_stream_channels)
         if too_long_ids:
-            log.info("Ids demasiado largos:     %s (omitidos)", too_long_ids)
-        top = sorted(numbers.items(), key=lambda item: item[1], reverse=True)[:10]
-        log.info("Top paises: %s", ", ".join(f"{code}={count}" for code, count in top))
+            log.info("Ids demasiados largos:     %s (omitidos)", too_long_ids)
         log.info("--------------------------------------------------")
         return 0
     finally:

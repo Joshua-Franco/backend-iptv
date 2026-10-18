@@ -3,59 +3,87 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from database.connection import get_db
-from models.iptv import IptvChannel, IptvCountry
+from models.iptv import IptvCategory, IptvChannel
 from schemas.channel import ChannelOut
-from schemas.iptv import ChannelPageOut, CountryOut
+from schemas.iptv import ChannelPageOut, IptvCategoryOut
 from services.channels import to_iptv_out
 from services.images import get_image
 
 router = APIRouter(tags=["iptv"])
 
 
-@router.get("/countries", response_model=list[CountryOut])
-def read_countries(db: Session = Depends(get_db)) -> list[CountryOut]:
-    stmt = (
-        select(IptvCountry, func.count(IptvChannel.id))
-        .outerjoin(IptvChannel, IptvChannel.country == IptvCountry.code)
-        .group_by(IptvCountry.code)
-        .order_by(IptvCountry.name)
+@router.get("/iptv/categories", response_model=list[IptvCategoryOut])
+def read_iptv_categories(db: Session = Depends(get_db)) -> list[IptvCategoryOut]:
+    counts = dict(
+        db.execute(
+            select(IptvChannel.category, func.count(IptvChannel.id)).group_by(
+                IptvChannel.category
+            )
+        ).all()
     )
-    return [
-        CountryOut(
-            code=country.code,
-            name=country.name,
-            flag=country.flag,
-            channel_count=count,
+    items = [
+        IptvCategoryOut(
+            code=row.code,
+            name=row.name_es,
+            name_en=row.name_en,
+            count=counts.get(row.name_es, 0),
         )
-        for country, count in db.execute(stmt)
+        for row in db.scalars(select(IptvCategory)).all()
     ]
+    items.sort(key=lambda item: (-item.count, item.name))
+    return items
 
 
-@router.get("/countries/{code}/channels", response_model=ChannelPageOut)
-def read_country_channels(
+@router.get("/iptv/categories/{code}/channels", response_model=ChannelPageOut)
+def read_iptv_category_channels(
     code: str,
     limit: int = Query(default=60, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> ChannelPageOut:
-    code = code.upper()
-    if not db.get(IptvCountry, code):
+    category = db.get(IptvCategory, code)
+    if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pais '{code}' no encontrado",
+            detail=f"Categoria '{code}' no encontrada",
         )
-    total = (
-        db.scalar(
-            select(func.count(IptvChannel.id)).where(IptvChannel.country == code)
-        )
-        or 0
-    )
+    where = IptvChannel.category == category.name_es
+    total = db.scalar(select(func.count(IptvChannel.id)).where(where)) or 0
     rows = db.scalars(
         select(IptvChannel)
-        .where(IptvChannel.country == code)
-        .order_by(IptvChannel.name)
+        .where(where)
+        .order_by(IptvChannel.name, IptvChannel.id)
         .limit(limit)
         .offset(offset)
+    ).all()
+    return ChannelPageOut(
+        items=[to_iptv_out(row) for row in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/iptv/catalog", response_model=ChannelPageOut)
+def read_iptv_catalog(
+    limit: int = Query(default=60, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None, max_length=100),
+    db: Session = Depends(get_db),
+) -> ChannelPageOut:
+    stmt = select(IptvChannel)
+    total_stmt = select(func.count(IptvChannel.id))
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        condition = or_(
+            IptvChannel.name.ilike(pattern),
+            IptvChannel.category.ilike(pattern),
+        )
+        stmt = stmt.where(condition)
+        total_stmt = total_stmt.where(condition)
+    total = db.scalar(total_stmt) or 0
+    rows = db.scalars(
+        stmt.order_by(IptvChannel.name, IptvChannel.id).limit(limit).offset(offset)
     ).all()
     return ChannelPageOut(
         items=[to_iptv_out(row) for row in rows],

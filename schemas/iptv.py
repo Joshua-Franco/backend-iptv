@@ -5,11 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from schemas.channel import ChannelOut
 
 
-class CountryOut(BaseModel):
+class IptvCategoryOut(BaseModel):
     code: str
     name: str
-    flag: str
-    channel_count: int = 0
+    name_en: str
+    count: int = 0
 
 
 class ChannelPageOut(BaseModel):

@@ -1,9 +1,9 @@
 from schemas.channel import CategoryOut, ChannelOut, HealthOut
 from schemas.iptv import (
     ChannelPageOut,
-    CountryOut,
     CustomSourceIn,
     CustomSourceOut,
+    IptvCategoryOut,
 )
 
 __all__ = [
@@ -11,7 +11,7 @@ __all__ = [
     "CategoryOut",
     "HealthOut",
     "ChannelPageOut",
-    "CountryOut",
+    "IptvCategoryOut",
     "CustomSourceIn",
     "CustomSourceOut",
 ]

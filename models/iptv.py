@@ -15,15 +15,6 @@ from database.connection import Base
 from models.channel import new_uuid
 
 
-class IptvCountry(Base):
-    __tablename__ = "iptv_countries"
-
-    code: Mapped[str] = mapped_column(String(8), primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    flag: Mapped[str] = mapped_column(String(16), nullable=False, default="")
-    languages: Mapped[str] = mapped_column(Text, nullable=False, default="")
-
-
 class IptvCategory(Base):
     __tablename__ = "iptv_categories"
 
@@ -40,9 +31,6 @@ class IptvChannel(Base):
         String(36), unique=True, nullable=False, index=True, default=new_uuid
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    country: Mapped[str] = mapped_column(
-        String(8), ForeignKey("iptv_countries.code"), nullable=False, index=True
-    )
     category: Mapped[str] = mapped_column(
         String(60), nullable=False, default="Generalista", index=True
     )
@@ -61,7 +49,7 @@ class IptvChannel(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<IptvChannel {self.country}:{self.name}>"
+        return f"<IptvChannel {self.name}>"
 
 
 class IptvStream(Base):
