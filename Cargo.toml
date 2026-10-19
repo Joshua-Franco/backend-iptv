@@ -1,0 +1,43 @@
+[package]
+name = "iptv-peru-api"
+version = "1.0.0"
+edition = "2021"
+
+[[bin]]
+name = "iptv-peru-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "import_iptv_org"
+path = "scripts/import_iptv_org.rs"
+
+[[bin]]
+name = "seed"
+path = "scripts/seed.rs"
+
+[[bin]]
+name = "test_db"
+path = "scripts/test_db.rs"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "gzip", "brotli", "deflate"] }
+url = "2"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures-util = "0.3"
+bytes = "1"
+http = "1"
+ipnet = "2"
+mime_guess = "2"

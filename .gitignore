@@ -1,4 +1,8 @@
 .env
+target/
+*.log
+
+# Legacy Python ignores
 venv/
 .venv/
 __pycache__/
@@ -9,4 +13,3 @@ __pycache__/
 .ruff_cache/
 dist/
 build/
-*.log
