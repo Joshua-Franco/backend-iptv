@@ -1,3 +1,5 @@
+from collections import Counter
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -14,19 +16,19 @@ router = APIRouter(tags=["iptv"])
 
 @router.get("/iptv/categories", response_model=list[IptvCategoryOut])
 def read_iptv_categories(db: Session = Depends(get_db)) -> list[IptvCategoryOut]:
-    counts = dict(
-        db.execute(
-            select(IptvChannel.category, func.count(IptvChannel.id)).group_by(
-                IptvChannel.category
-            )
-        ).all()
-    )
+    tag_counts: Counter[str] = Counter()
+    for csv in db.scalars(select(IptvChannel.categories)):
+        if not csv:
+            continue
+        for tag in {part.strip() for part in csv.split(",")}:
+            if tag:
+                tag_counts[tag] += 1
     items = [
         IptvCategoryOut(
             code=row.code,
             name=row.name_es,
             name_en=row.name_en,
-            count=counts.get(row.name_es, 0),
+            count=tag_counts.get(row.code, 0),
         )
         for row in db.scalars(select(IptvCategory)).all()
     ]
@@ -47,7 +49,7 @@ def read_iptv_category_channels(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Categoria '{code}' no encontrada",
         )
-    where = IptvChannel.category == category.name_es
+    where = IptvChannel.categories.ilike(f"%{code}%")
     total = db.scalar(select(func.count(IptvChannel.id)).where(where)) or 0
     rows = db.scalars(
         select(IptvChannel)
